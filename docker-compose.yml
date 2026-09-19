@@ -1,0 +1,37 @@
+version: "3.8"
+
+services:
+  paperless-ngx:
+    image: ghcr.io/paperless-ngx/paperless-ngx:latest
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      PAPERLESS_ADMIN_USER: admin
+      PAPERLESS_ADMIN_PASSWORD: admin
+      PAPERLESS_TIME_ZONE: Europe/Berlin
+      PAPERLESS_URL: http://localhost:8000
+    volumes:
+      - /home/youtube/paperless-ngx/data:/usr/src/paperless/data
+      - /home/youtube/paperless-ngx/media:/usr/src/paperless/media
+      - /home/youtube/paperless-ngx/export:/usr/src/paperless/export
+      - /home/youtube/paperless-ngx/consume:/usr/src/paperless/consume
+    depends_on:
+      - redis
+      - postgres
+
+  redis:
+    image: docker.io/library/redis:7
+    restart: unless-stopped
+    volumes:
+      - /home/youtube/paperless-ngx/redisdata:/data
+
+  postgres:
+    image: docker.io/library/postgres:15
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: paperless
+      POSTGRES_USER: paperless
+      POSTGRES_PASSWORD: paperless
+    volumes:
+      - /home/youtube/paperless-ngx/pgdata:/var/lib/postgresql/data
