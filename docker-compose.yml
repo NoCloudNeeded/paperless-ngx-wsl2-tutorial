@@ -49,4 +49,3 @@ services:
       POSTGRES_PASSWORD: paperless
     volumes:
       - /home/youtube/paperless-ngx/pgdata:/var/lib/postgresql/data
-      - /home/youtube/paperless-ngx/pgdata:/var/lib/postgresql/data
