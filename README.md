@@ -102,6 +102,3 @@ python3 generate_voiceover.py
 
 ## 🛡️ License
 MIT License. Built for self-hosters and developers by [NoCloudNeeded](https://github.com/NoCloudNeeded).
-
-## 🛡️ License
-MIT License. Built for self-hosters and developers by [NoCloudNeeded](https://github.com/NoCloudNeeded).
