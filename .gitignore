@@ -1,7 +1,22 @@
 # Ignore everything by default
 *
 
-# But allow these specific files/folders
+# Allow repository configuration and documentation
 !.gitignore
 !README.md
 !docs/
+!docker-compose.yml
+!.env.example
+!generate_voiceover.py
+!sample-transcript.txt
+
+# Always protect real credentials and data directories
+.env
+data/
+media/
+consume/
+export/
+pgdata/
+redisdata/
+*.wav
+*.mp4
