@@ -3,6 +3,40 @@ Companion resource for the NoCloudNeeded video tutorial on deploying Paperless-n
 
 🏗️ Technical Framing & Architecture
 
+flowchart TD
+    Browser["Browser<br/>127.0.0.1:8000"]
+
+    subgraph WSL["WSL2 Host — ~/paperless-ngx/"]
+        Consume["consume/"]
+        Export["export/"]
+        Data["data/"]
+        Media["media/"]
+        PGData["pgdata/"]
+        RedisData["redisdata/"]
+    end
+
+    subgraph Docker["Docker Compose Stack"]
+        Web["webserver<br/>Paperless-ngx"]
+        DB["db<br/>PostgreSQL 16"]
+        Broker["broker<br/>Valkey 9"]
+        Internal["paperlessinternal<br/>internal: true"]
+    end
+
+    Browser --> Web
+
+    Consume --> Web
+    Export --> Web
+    Data --> Web
+    Media --> Web
+    PGData --> DB
+    RedisData --> Broker
+
+    Web --> DB
+    Web --> Broker
+
+    DB --- Internal
+    Broker --- Internal
+    Web --- Internal
 
 
 Architectural Decisions
