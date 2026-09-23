@@ -1,8 +1,12 @@
-Paperless-ngx on WSL2: Complete Companion Guide
-Companion resource for the NoCloudNeeded video tutorial on deploying Paperless-ngx on WSL2 with an isolated Docker Compose stack.
+# Paperless-ngx on WSL2: Complete Companion Guide
 
-🏗️ Technical Framing & Architecture
+Companion resource for the [NoCloudNeeded](https://github.com/NoCloudNeeded) video tutorial on deploying Paperless-ngx on WSL2 with an isolated Docker Compose stack.
 
+***
+
+## 🏗️ Technical Framing & Architecture
+
+```mermaid
 flowchart TD
     Browser["Browser<br/>127.0.0.1:8000"]
 
@@ -37,48 +41,68 @@ flowchart TD
     DB --- Internal
     Broker --- Internal
     Web --- Internal
+```
 
+### Architectural Decisions
 
-Architectural Decisions
-Aspect	Project Choice	Rationale
-Broker	Valkey 9 (valkey:9-alpine)	Open-source Redis-protocol-compatible broker for Celery queues.
-Database	PostgreSQL 16	Avoids SQLite concurrent write-lock errors during OCR and background processing.
-Network	paperlessinternal	Isolated internal Docker network; database and broker expose no host ports.
-Port binding	127.0.0.1:8000:8000	Limits the web interface to the local machine.
-Storage	Host bind mounts	Data remains inspectable and portable under ~/paperless-ngx/.
-Image version	Pinned release tag	Use a tested official Paperless-ngx release instead of latest for reproducible deployments.
-Document Processing Behavior
-Plain-text files are indexed as searchable text.
+| Aspect | Project Choice | Rationale |
+| :--- | :--- | :--- |
+| **Broker** | Valkey 9 (`valkey:9-alpine`) | Open-source Redis-protocol-compatible broker for Celery queues. |
+| **Database** | PostgreSQL 16 | Avoids SQLite concurrent write-lock errors during OCR and background processing. |
+| **Network** | `paperlessinternal` | Isolated internal Docker network; database and broker expose no host ports. |
+| **Port binding** | `127.0.0.1:8000:8000` | Limits the web interface to the local machine. |
+| **Storage** | Host bind mounts | Data remains inspectable and portable under `~/paperless-ngx/`. |
+| **Image version** | Pinned release tag | Use a tested official Paperless-ngx release instead of `latest` for reproducible deployments. |
 
-PDFs and scanned images are processed with Tesseract OCR and converted into searchable archive documents.
+### Document Processing Behavior
 
-📋 1. Prerequisites
+- Plain-text files are indexed as searchable text.
+- PDFs and scanned images are processed with Tesseract OCR and converted into searchable archive documents.
+
+***
+
+## 📋 1. Prerequisites
+
 Run these checks inside WSL2:
 
-bash
+```bash
 docker --version
 docker compose version
 id -u
 id -g
-📁 2. Host Directory Structure
-bash
+```
+
+***
+
+## 📁 2. Host Directory Structure
+
+```bash
 mkdir -p ~/paperless-ngx/{data,media,consume,export,pgdata,redisdata}
 cd ~/paperless-ngx
-Directory	Container Path	Purpose
-data/	/usr/src/paperless/data	Application state, indexes, and classifier models.
-media/	/usr/src/paperless/media	Original documents and generated archive media.
-consume/	/usr/src/paperless/consume	Folder monitored for new documents.
-export/	/usr/src/paperless/export	Destination for document_exporter archives.
-pgdata/	/var/lib/postgresql/data	PostgreSQL database storage.
-redisdata/	/data	Valkey persistence storage.
-⚙️ 3. Environment Configuration
+```
+
+| Directory | Container Path | Purpose |
+| :--- | :--- | :--- |
+| `data/` | `/usr/src/paperless/data` | Application state, indexes, and classifier models. |
+| `media/` | `/usr/src/paperless/media` | Original documents and generated archive media. |
+| `consume/` | `/usr/src/paperless/consume` | Folder monitored for new documents. |
+| `export/` | `/usr/src/paperless/export` | Destination for `document_exporter` archives. |
+| `pgdata/` | `/var/lib/postgresql/data` | PostgreSQL database storage. |
+| `redisdata/` | `/data` | Valkey persistence storage. |
+
+***
+
+## ⚙️ 3. Environment Configuration
+
 Generate a secret key:
 
-bash
+```bash
 python3 -c "import secrets; print(secrets.token_hex(32))"
-Create ~/paperless-ngx/.env:
+```
 
-text
+Create `~/paperless-ngx/.env`:
+
+```env
 # WSL2 host user mapping — replace with your own id -u and id -g values
 USERMAP_UID=1000
 USERMAP_GID=1000
@@ -102,12 +126,17 @@ POSTGRES_PASSWORD=REPLACE_WITH_A_STRONG_PASSWORD
 
 # Valkey message broker
 PAPERLESS_REDIS=redis://broker:6379
-PAPERLESS_DBPASS and POSTGRES_PASSWORD must use the same value.
+```
 
-🐳 4. Docker Compose Configuration
-Create ~/paperless-ngx/docker-compose.yml:
+`PAPERLESS_DBPASS` and `POSTGRES_PASSWORD` must use the same value.
 
-text
+***
+
+## 🐳 4. Docker Compose Configuration
+
+Create `~/paperless-ngx/docker-compose.yml`:
+
+```yaml
 services:
   broker:
     image: docker.io/valkey/valkey:9-alpine
@@ -166,62 +195,84 @@ networks:
   paperlessinternal:
     driver: bridge
     internal: true
-🚀 5. Launch & Verification
-bash
+```
+
+***
+
+## 🚀 5. Launch & Verification
+
+```bash
 docker compose pull
 docker compose up -d
 docker compose ps
+```
+
 Create an administrator account:
 
-bash
+```bash
 docker compose exec webserver python3 manage.py createsuperuser
+```
+
 Check the database and broker:
 
-bash
+```bash
 docker compose exec db pg_isready -U paperless
 docker compose exec broker valkey-cli ping
+```
+
 Open:
 
-text
+```text
 http://127.0.0.1:8000
-🔍 6. Test Document Ingestion
-Sign in to Paperless-ngx.
+```
 
-Place a PDF or scanned document in ~/paperless-ngx/consume/.
+***
 
-Wait for Paperless-ngx to process it.
+## 🔍 6. Test Document Ingestion
 
-Open the document and confirm:
+1. Sign in to Paperless-ngx.
+2. Place a PDF or scanned document in `~/paperless-ngx/consume/`.
+3. Wait for Paperless-ngx to process it.
+4. Open the document and confirm:
+   - OCR text is searchable.
+   - Tags, correspondent, document type, and storage path can be assigned.
+   - Full-text search returns the document.
 
-OCR text is searchable.
+For automated organization, create workflows in **Documents → Workflows**. For example, assign a tag when a filename contains a chosen pattern.
 
-Tags, correspondent, document type, and storage path can be assigned.
+***
 
-Full-text search returns the document.
+## 💾 7. Backup & Restore Protocol
 
-For automated organization, create workflows in Documents → Workflows. For example, assign a tag when a filename contains a chosen pattern.
+### Export documents and metadata
 
-💾 7. Backup & Restore Protocol
-Export documents and metadata
-bash
+```bash
 docker compose exec -T webserver document_exporter /usr/src/paperless/export
-Create a PostgreSQL logical backup
-bash
+```
+
+### Create a PostgreSQL logical backup
+
+```bash
 docker compose exec -T db pg_dump -U paperless paperless > "paperless-db-$(date +%F).sql"
-Protect the export directory, database dump, .env, and Compose configuration. Copy backups to separate storage; the local export/ directory is a staging location, not a complete offsite backup.
+```
 
-Test restoration
-On a clean Paperless-ngx instance running the same major version:
+Protect the export directory, database dump, `.env`, and Compose configuration. Copy backups to separate storage; the local `export/` directory is a staging location, not a complete offsite backup.
 
-bash
+### Test restoration
+
+On a clean Paperless-ngx instance running the **same major version**:
+
+```bash
 docker compose exec -T webserver document_importer /usr/src/paperless/export
+```
+
 Verify that documents, metadata, tags, users, and search results were restored. A backup is only proven once it has been restored successfully.
 
-📚 Repository Files
-README.md — this guide.
+***
 
-docker-compose.yml — Paperless-ngx, PostgreSQL, and Valkey stack.
+## 📚 Repository Files
 
-.env.example — environment-variable template.
-
-LICENSE — MIT license.
+- `README.md` — this guide.
+- `docker-compose.yml` — Paperless-ngx, PostgreSQL, and Valkey stack.
+- `.env.example` — environment-variable template.
+- `LICENSE` — MIT license.
