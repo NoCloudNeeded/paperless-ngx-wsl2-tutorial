@@ -7,8 +7,6 @@
 !docs/
 !docker-compose.yml
 !.env.example
-!generate_voiceover.py
-!sample-transcript.txt
 
 # Always protect real credentials and data directories
 .env
@@ -20,3 +18,4 @@ pgdata/
 redisdata/
 *.wav
 *.mp4
+*.log
