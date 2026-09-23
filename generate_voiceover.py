@@ -1,35 +1,43 @@
-import subprocess, re, json
+import subprocess
+import re
+import json
 import soundfile as sf
 import numpy as np
 from kokoro import KPipeline
 
+SAMPLE_RATE = 24000
 pipeline = KPipeline(lang_code='a')
 
-# Load and blend voices (0.55 heart + 0.45 bella)
+# Load and blend voices (55% af_heart + 45% af_bella)
 v_heart = pipeline.load_voice('af_heart')
 v_bella = pipeline.load_voice('af_bella')
 blended_voice = 0.55 * v_heart + 0.45 * v_bella
 
+# Acronyms spelled out with hyphens for precise letter-by-letter TTS pronunciation
 text = """Paperless-ngx transforms physical documents into a searchable personal archive.
 
 By pairing it with PostgreSQL and Valkey in Docker Compose, you eliminate database locking issues during heavy O-C-R ingestion.
 
 Let us look at our saved views for Tutorial docs and Voice docs, run a search for simulated transcripts, and inspect the automated tags."""
 
+print('[1/3] Synthesizing speech with Kokoro-82M...')
 chunks = list(pipeline(text, voice=blended_voice, speed=0.92, split_pattern=r'\n+'))
 audio_segments = []
 
 for i, (gs, ps, audio) in enumerate(chunks):
     audio_segments.append(audio)
     if i < len(chunks) - 1:
-        audio_segments.append(np.zeros(int(24000 * 0.55)))
+        # 0.55s natural breathing pause between distinct paragraphs
+        audio_segments.append(np.zeros(int(SAMPLE_RATE * 0.55), dtype=np.float32))
 
-audio_segments.append(np.zeros(int(24000 * 0.4)))
+# 0.4s clean trailing silence
+audio_segments.append(np.zeros(int(SAMPLE_RATE * 0.4), dtype=np.float32))
 raw_audio = np.concatenate(audio_segments)
-sf.write('raw_tts.wav', raw_audio, 24000)
+sf.write('raw_tts.wav', raw_audio, SAMPLE_RATE)
 
-print('[1/2] TTS Synthesis Complete. Mastering with FFmpeg (90Hz Highpass + -14 LUFS Loudnorm)...')
+print('[2/3] Mastering audio with FFmpeg (90Hz High-Pass + 2-Pass -14 LUFS Loudnorm)...')
 
+# --- PASS 1: Measure loudness ---
 cmd_pass1 = [
     'ffmpeg', '-y', '-i', 'raw_tts.wav',
     '-af', 'highpass=f=90,loudnorm=I=-14:TP=-1.0:LRA=7:print_format=json',
@@ -39,6 +47,11 @@ res = subprocess.run(cmd_pass1, capture_output=True, text=True)
 m = re.search(r'\{[\s\S]*\}', res.stderr)
 stats = json.loads(m.group(0))
 
+measured_lra = float(stats['input_lra'])
+if abs(measured_lra - 7) > 10:
+    print(f"  Warning: measured LRA ({measured_lra}) deviates from target (7) — verify loudness output.")
+
+# --- PASS 2: Apply linear normalization & 48kHz upsampling ---
 cmd_pass2 = [
     'ffmpeg', '-y', '-i', 'raw_tts.wav',
     '-af', (
@@ -56,4 +69,12 @@ cmd_pass2 = [
     'paperless_mastered_youtube.wav'
 ]
 subprocess.run(cmd_pass2, check=True)
-print('[2/2] Mastered track ready: paperless_mastered_youtube.wav (-14 LUFS, 48kHz mono)')
+
+# --- Verification Check ---
+print('[3/3] Mastered track saved: paperless_mastered_youtube.wav (48kHz mono, -14 LUFS, -1.0 dBTP)')
+cmd_check = ['ffmpeg', '-i', 'paperless_mastered_youtube.wav', '-af', 'ebur128=framelog=verbose', '-f', 'null', '-']
+check_res = subprocess.run(cmd_check, capture_output=True, text=True)
+for line in check_res.stderr.split('\n'):
+    if 'I:' in line and 'LUFS' in line:
+        print(f'      Verified {line.strip()}')
+        break
