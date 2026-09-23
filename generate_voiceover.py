@@ -13,12 +13,18 @@ v_heart = pipeline.load_voice('af_heart')
 v_bella = pipeline.load_voice('af_bella')
 blended_voice = 0.55 * v_heart + 0.45 * v_bella
 
-# Acronyms spelled out with hyphens for precise letter-by-letter TTS pronunciation
+# Video narration — audience-focused only; no personal workflow details
 text = """Paperless-ngx transforms physical documents into a searchable personal archive.
 
-By pairing it with PostgreSQL and Valkey in Docker Compose, you eliminate database locking issues during heavy O-C-R ingestion.
+By pairing it with PostgreSQL and Valkey in Docker Compose, you avoid database locking issues during heavy O-C-R ingestion.
 
-Let us look at our saved views for Tutorial docs and Voice docs, run a search for simulated transcripts, and inspect the automated tags."""
+Drop a PDF into the consume folder, and Paperless-ngx processes it automatically.
+
+For scanned documents, it runs O-C-R, extracts the text, and creates a searchable archive copy.
+
+Then search for any word inside your documents, assign tags and document types, and organize everything with saved views.
+
+In the next video, we will configure automated workflows so Paperless-ngx organizes new documents without manual work."""
 
 print('[1/3] Synthesizing speech with Kokoro-82M...')
 chunks = list(pipeline(text, voice=blended_voice, speed=0.92, split_pattern=r'\n+'))
