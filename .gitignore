@@ -1,28 +1,39 @@
-# Ignore everything by default
+# =====================================================================
+# Paperless-ngx on WSL2 — Git Ignore Policy
+# Strategy: Block everything by default, explicitly whitelist safe repository files.
+# =====================================================================
+
+# 1. Ignore everything by default
 *
 
-# Allow repository configuration and documentation
+# 2. Whitelist essential tracking files and documentation
 !.gitignore
+!.env.example
 !README.md
+!docker-compose.yml
 !docs/
 !docs/**
-!docker-compose.yml
-!.env.example
 
-# Always protect real credentials and data directories
+# 3. Protect local environment variables and database dumps
 .env
 **/.env
+*.sql
+
+# 4. Protect persistent storage and volume directories
 data/
 media/
 consume/
 export/
 pgdata/
 redisdata/
+valkeydata/
+
+# 5. Protect media, generated assets, and runtime logs
 *.wav
 *.mp4
 *.log
 
-# Protect secrets and keys anywhere in the repository
+# 6. Protect SSL/TLS keys, certificates, and secret files
 *.key
 *.pem
 *.p12
