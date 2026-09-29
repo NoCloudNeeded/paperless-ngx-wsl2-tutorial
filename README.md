@@ -1,3 +1,59 @@
+Here is the review of your **Companion Guide (`README.md` / `docs/`)**.
+
+Overall, this is a **fantastic, production-ready guide**. The Mermaid diagram, table structures, clear code blocks, and security boundary explanations are excellent.
+
+However, there are **3 key updates** required to align it with the fixes we've made to the rest of your project repository.
+
+---
+
+### Critical Updates Needed
+
+#### 1. Missing `PYTHONPATH` in Admin Account Creation Command
+
+* **Current text:**
+```bash
+docker compose exec webserver python3 manage.py createsuperuser
+
+```
+
+
+* **The issue:** As identified in previous reviews, running Django commands directly inside official Paperless containers requires setting `PYTHONPATH`. Without it, Python fails to locate `manage.py` and its settings modules.
+* **Fix:** Update the command to:
+```bash
+docker compose exec webserver env PYTHONPATH=/usr/src/paperless/src python3 manage.py createsuperuser
+
+```
+
+
+
+#### 2. Folder Naming Inconsistency (`redisdata` vs `valkeydata`)
+
+* **Current text:**
+* Mermaid diagram & folder setup use `redisdata/` for Valkey storage.
+* `.gitignore` protects `valkeydata/`.
+
+
+* **Fix:** Change `redisdata/` to `valkeydata/` in:
+1. The **Mermaid Diagram** (`RedisData` -> `ValkeyData["valkeydata/"]`).
+2. The **`mkdir` command** (`mkdir -p ~/paperless-ngx/{data,media,consume,export,pgdata,valkeydata}`).
+3. The **Directory Table**.
+4. The **`docker-compose.yml` volume mount** (`- ./valkeydata:/data`).
+
+
+
+#### 3. Missing `PAPERLESS_URL` in `.env` Code Block
+
+* **Current text:**
+The `.env` section lists database and broker settings but leaves out `PAPERLESS_URL`.
+* **Fix:** Include `PAPERLESS_URL=[http://127.0.0.1:8000](http://127.0.0.1:8000)` inside section **3. Environment Configuration** so users don't encounter CSRF header issues when logging in.
+
+---
+
+### Complete Corrected Companion Guide
+
+Here is the updated markdown file ready to save:
+
+```markdown
 # Paperless-ngx on WSL2: Complete Companion Guide
 
 Companion resource for the [NoCloudNeeded](https://github.com/NoCloudNeeded) video tutorial on deploying Paperless-ngx on WSL2 with an isolated Docker Compose stack.
@@ -16,7 +72,7 @@ flowchart TD
         Data["data/"]
         Media["media/"]
         PGData["pgdata/"]
-        RedisData["redisdata/"]
+        ValkeyData["valkeydata/"]
     end
 
     subgraph Docker["Docker Compose Stack"]
@@ -33,7 +89,7 @@ flowchart TD
     Data --> Web
     Media --> Web
     PGData --> DB
-    RedisData --> Broker
+    ValkeyData --> Broker
 
     Web --> DB
     Web --> Broker
@@ -41,12 +97,13 @@ flowchart TD
     DB --- Internal
     Broker --- Internal
     Web --- Internal
+
 ```
 
 ### Architectural Decisions
 
 | Aspect | Project Choice | Rationale |
-| :--- | :--- | :--- |
+| --- | --- | --- |
 | **Broker** | Valkey 9 (`valkey:9-alpine`) | Open-source Redis-protocol-compatible broker for Celery queues. |
 | **Database** | PostgreSQL 16 | Avoids SQLite concurrent write-lock errors during OCR and background processing. |
 | **Network** | `paperlessinternal` | Isolated internal Docker network; database and broker expose no host ports. |
@@ -56,10 +113,10 @@ flowchart TD
 
 ### Document Processing Behavior
 
-- Plain-text files are indexed as searchable text.
-- PDFs and scanned images are processed with Tesseract OCR and converted into searchable archive documents.
+* Plain-text files are indexed as searchable text.
+* PDFs and scanned images are processed with Tesseract OCR and converted into searchable archive documents.
 
-***
+---
 
 ## 📋 1. Prerequisites
 
@@ -70,27 +127,29 @@ docker --version
 docker compose version
 id -u
 id -g
+
 ```
 
-***
+---
 
 ## 📁 2. Host Directory Structure
 
 ```bash
-mkdir -p ~/paperless-ngx/{data,media,consume,export,pgdata,redisdata}
+mkdir -p ~/paperless-ngx/{data,media,consume,export,pgdata,valkeydata}
 cd ~/paperless-ngx
+
 ```
 
 | Directory | Container Path | Purpose |
-| :--- | :--- | :--- |
+| --- | --- | --- |
 | `data/` | `/usr/src/paperless/data` | Application state, indexes, and classifier models. |
 | `media/` | `/usr/src/paperless/media` | Original documents and generated archive media. |
 | `consume/` | `/usr/src/paperless/consume` | Folder monitored for new documents. |
 | `export/` | `/usr/src/paperless/export` | Destination for `document_exporter` archives. |
 | `pgdata/` | `/var/lib/postgresql/data` | PostgreSQL database storage. |
-| `redisdata/` | `/data` | Valkey persistence storage. |
+| `valkeydata/` | `/data` | Valkey persistence storage. |
 
-***
+---
 
 ## ⚙️ 3. Environment Configuration
 
@@ -98,6 +157,7 @@ Generate a secret key:
 
 ```bash
 python3 -c "import secrets; print(secrets.token_hex(32))"
+
 ```
 
 Create `~/paperless-ngx/.env`:
@@ -111,6 +171,7 @@ USERMAP_GID=1000
 PAPERLESS_TIME_ZONE=Europe/Brussels
 PAPERLESS_SECRET_KEY=REPLACE_WITH_YOUR_GENERATED_64_CHARACTER_KEY
 PAPERLESS_OCR_LANGUAGE=eng
+PAPERLESS_URL=[http://127.0.0.1:8000](http://127.0.0.1:8000)
 
 # PostgreSQL database
 PAPERLESS_DBENGINE=postgresql
@@ -126,11 +187,12 @@ POSTGRES_PASSWORD=REPLACE_WITH_A_STRONG_PASSWORD
 
 # Valkey message broker
 PAPERLESS_REDIS=redis://broker:6379
+
 ```
 
 `PAPERLESS_DBPASS` and `POSTGRES_PASSWORD` must use the same value.
 
-***
+---
 
 ## 🐳 4. Docker Compose Configuration
 
@@ -142,7 +204,7 @@ services:
     image: docker.io/valkey/valkey:9-alpine
     restart: unless-stopped
     volumes:
-      - ./redisdata:/data
+      - ./valkeydata:/data
     networks:
       - paperlessinternal
 
@@ -184,6 +246,7 @@ services:
       PAPERLESS_SECRET_KEY: ${PAPERLESS_SECRET_KEY}
       PAPERLESS_TIME_ZONE: ${PAPERLESS_TIME_ZONE}
       PAPERLESS_OCR_LANGUAGE: ${PAPERLESS_OCR_LANGUAGE}
+      PAPERLESS_URL: ${PAPERLESS_URL}
       USERMAP_UID: ${USERMAP_UID}
       USERMAP_GID: ${USERMAP_GID}
     networks:
@@ -195,9 +258,10 @@ networks:
   paperlessinternal:
     driver: bridge
     internal: true
+
 ```
 
-***
+---
 
 ## 🚀 5. Launch & Verification
 
@@ -205,12 +269,14 @@ networks:
 docker compose pull
 docker compose up -d
 docker compose ps
+
 ```
 
 Create an administrator account:
 
 ```bash
-docker compose exec webserver python3 manage.py createsuperuser
+docker compose exec webserver env PYTHONPATH=/usr/src/paperless/src python3 manage.py createsuperuser
+
 ```
 
 Check the database and broker:
@@ -218,15 +284,17 @@ Check the database and broker:
 ```bash
 docker compose exec db pg_isready -U paperless
 docker compose exec broker valkey-cli ping
+
 ```
 
 Open:
 
 ```text
-http://127.0.0.1:8000
+[http://127.0.0.1:8000](http://127.0.0.1:8000)
+
 ```
 
-***
+---
 
 ## 🔍 6. Test Document Ingestion
 
@@ -234,13 +302,15 @@ http://127.0.0.1:8000
 2. Place a PDF or scanned document in `~/paperless-ngx/consume/`.
 3. Wait for Paperless-ngx to process it.
 4. Open the document and confirm:
-   - OCR text is searchable.
-   - Tags, correspondent, document type, and storage path can be assigned.
-   - Full-text search returns the document.
+* OCR text is searchable.
+* Tags, correspondent, document type, and storage path can be assigned.
+* Full-text search returns the document.
+
+
 
 For automated organization, create workflows in **Documents → Workflows**. For example, assign a tag when a filename contains a chosen pattern.
 
-***
+---
 
 ## 💾 7. Backup & Restore Protocol
 
@@ -248,12 +318,14 @@ For automated organization, create workflows in **Documents → Workflows**. For
 
 ```bash
 docker compose exec -T webserver document_exporter /usr/src/paperless/export
+
 ```
 
 ### Create a PostgreSQL logical backup
 
 ```bash
 docker compose exec -T db pg_dump -U paperless paperless > "paperless-db-$(date +%F).sql"
+
 ```
 
 Protect the export directory, database dump, `.env`, and Compose configuration. Copy backups to separate storage; the local `export/` directory is a staging location, not a complete offsite backup.
@@ -264,15 +336,18 @@ On a clean Paperless-ngx instance running the **same major version**:
 
 ```bash
 docker compose exec -T webserver document_importer /usr/src/paperless/export
+
 ```
 
 Verify that documents, metadata, tags, users, and search results were restored. A backup is only proven once it has been restored successfully.
 
-***
+---
 
 ## 📚 Repository Files
 
-- `README.md` — this guide.
-- `docker-compose.yml` — Paperless-ngx, PostgreSQL, and Valkey stack.
-- `.env.example` — environment-variable template.
-- `LICENSE` — MIT license.
+* `README.md` — this guide.
+* `docker-compose.yml` — Paperless-ngx, PostgreSQL, and Valkey stack.
+* `.env.example` — environment-variable template.
+* `LICENSE` — MIT license.
+
+```
