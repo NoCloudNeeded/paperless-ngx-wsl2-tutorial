@@ -1,42 +1,49 @@
-version: "3.8"
-
 services:
   broker:
     image: docker.io/valkey/valkey:9-alpine
-    container_name: paperless-broker
     restart: unless-stopped
     volumes:
-      - /home/youtube/paperless-ngx/redisdata:/data
+      - ./redisdata:/data
     networks:
       - paperlessinternal
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   db:
     image: docker.io/library/postgres:16
-    container_name: paperless-db
     restart: unless-stopped
     volumes:
-      - /home/youtube/paperless-ngx/pgdata:/var/lib/postgresql/data
+      - ./pgdata:/var/lib/postgresql/data
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-paperless}
       POSTGRES_USER: ${POSTGRES_USER:-paperless}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
     networks:
       - paperlessinternal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
   webserver:
     image: ghcr.io/paperless-ngx/paperless-ngx:2.14.7
-    container_name: paperless-webserver
     restart: unless-stopped
     depends_on:
-      - db
-      - broker
+      db:
+        condition: service_healthy
+      broker:
+        condition: service_healthy
     ports:
       - "127.0.0.1:8000:8000"
     volumes:
-      - /home/youtube/paperless-ngx/data:/usr/src/paperless/data
-      - /home/youtube/paperless-ngx/media:/usr/src/paperless/media
-      - /home/youtube/paperless-ngx/consume:/usr/src/paperless/consume
-      - /home/youtube/paperless-ngx/export:/usr/src/paperless/export
+      - ./data:/usr/src/paperless/data
+      - ./media:/usr/src/paperless/media
+      - ./consume:/usr/src/paperless/consume
+      - ./export:/usr/src/paperless/export
     env_file:
       - .env
     environment:
@@ -50,7 +57,7 @@ services:
       PAPERLESS_SECRET_KEY: ${PAPERLESS_SECRET_KEY:?Set PAPERLESS_SECRET_KEY in .env}
       PAPERLESS_TIME_ZONE: ${PAPERLESS_TIME_ZONE:-America/New_York}
       PAPERLESS_OCR_LANGUAGE: ${PAPERLESS_OCR_LANGUAGE:-eng}
-      PAPERLESS_URL: ${PAPERLESS_URL:-http://localhost:8000}
+      PAPERLESS_URL: ${PAPERLESS_URL:-http://127.0.0.1:8000}
       USERMAP_UID: ${USERMAP_UID:-1000}
       USERMAP_GID: ${USERMAP_GID:-1000}
     networks:
