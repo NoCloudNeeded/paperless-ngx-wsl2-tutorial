@@ -159,7 +159,7 @@ services:
       - paperlessinternal
 
   webserver:
-    image: ghcr.io/paperless-ngx/paperless-ngx:2.14.7
+    image: ghcr.io/paperless-ngx/paperless-ngx:3.2.1
     restart: unless-stopped
     depends_on:
       - db
