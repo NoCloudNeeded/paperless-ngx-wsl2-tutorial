@@ -5,11 +5,13 @@
 !.gitignore
 !README.md
 !docs/
+!docs/**
 !docker-compose.yml
 !.env.example
 
 # Always protect real credentials and data directories
 .env
+**/.env
 data/
 media/
 consume/
@@ -19,3 +21,10 @@ redisdata/
 *.wav
 *.mp4
 *.log
+
+# Protect secrets and keys anywhere in the repository
+*.key
+*.pem
+*.p12
+*.pfx
+secrets*
